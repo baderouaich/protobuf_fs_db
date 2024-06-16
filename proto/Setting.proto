@@ -1,0 +1,9 @@
+syntax = "proto2";
+
+package types;
+
+message Setting {
+	required string id = 1; // its the key, but since our db impl expects an id with same name 'id'..
+	required string value = 2;
+	required uint64 userId = 3; // owner
+}

@@ -21,6 +21,15 @@ namespace utils {
     iss >> v;
     return v;
   }
+
+  template<typename In>
+  static constexpr std::string to_string(const In& in) {
+    if constexpr (std::is_same_v<In, std::string>) return in; // if not necessary
+
+    std::ostringstream oss{};
+    oss << in;
+    return oss.str();
+  }
 }
 
 class Database {
@@ -128,7 +137,8 @@ private:
     if(!fs::is_directory(objDir))
       fs::create_directories(objDir);
 
-    const fs::path objFilename = objDir / (std::to_string(obj.id()));
+
+    const fs::path objFilename = objDir / utils::to_string(obj.id());
     if(fs::exists(objFilename) && !overwrite)
     {
       throw std::logic_error("Object file " + objFilename.string() + " already exists. Cannot overwrite");
@@ -151,7 +161,7 @@ private:
     if(!fs::is_directory(objDir))
       throw std::logic_error("Db is empty");
 
-    const fs::path objFilename = objDir / (std::to_string(id));
+    const fs::path objFilename = objDir / utils::to_string(id);
     if(!fs::exists(objFilename)){
       throw std::logic_error("Object file " + objFilename.string() + " does not exists");
     }
@@ -169,7 +179,7 @@ private:
   template<typename T, typename ID>
   bool _exists(const ID& id) {
     const fs::path objDir = dbDir / typeDirName<T>();
-    const fs::path objFilename = objDir / (std::to_string(id));
+    const fs::path objFilename = objDir / utils::to_string(id);
     return fs::exists(objFilename);
   }
 
@@ -202,7 +212,7 @@ private:
     if(!fs::exists(objDir))
       fs::create_directories(objDir);
 
-    const fs::path objFilename = objDir / (std::to_string(id));
+    const fs::path objFilename = objDir / utils::to_string(id);
     if(!fs::exists(objFilename)) return true;
 
     return fs::remove(objFilename);

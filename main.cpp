@@ -1,6 +1,7 @@
 #include <iostream>
 #include "User.pb.h"
 #include "Download.pb.h"
+#include "Setting.pb.h"
 #include <thread>
 #include <filesystem>
 #include <optional>
@@ -24,10 +25,12 @@ int main() {
   // Optionally set directory name where user objects will be saved (default: types.User)
   db.typeDirName<types::User>("Users");
   db.typeDirName<types::Download>("Downloads");
+  db.typeDirName<types::Setting>("Settings");
 
   // Clear users & downloads objects
   db.clear<types::User>();
   db.clear<types::Download>();
+  db.clear<types::Setting>();
 
   // Test adding new users
   assert(MutexFile::numLocks == 0);
@@ -59,6 +62,14 @@ int main() {
   assert(MutexFile::numLocks == 0);
   assert(db.count<types::User>() == 1);
   assert(MutexFile::numLocks == 0);
+
+
+  types::Setting setting{};
+  setting.set_id("favorite_game");
+  setting.set_value("cs1.6");
+  setting.set_userid(user1.id());
+  db.add(setting, true);
+  assert(db.get<types::Setting>("favorite_game").value() == "cs1.6");
 
   // Test adding new downloads
   types::Download download;
