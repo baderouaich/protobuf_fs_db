@@ -47,14 +47,14 @@ class Database {
       db.mutexFile.lock();
       if(readonly) db.mutex.lock_shared();
       else  db.mutex.lock();
-      std::cout << "Database Locked" << std::endl;
+      //std::cout << "Database Locked" << std::endl;
     }
 
     ~DatabaseRAIILocker() {
       db.mutexFile.unlock();
       if(readonly) db.mutex.unlock_shared();
       else db.mutex.unlock();
-      std::cout << "Database Unlocked" << std::endl;
+      //std::cout << "Database Unlocked" << std::endl;
     }
   };
 

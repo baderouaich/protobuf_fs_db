@@ -154,7 +154,7 @@ int main() {
   // Test multithreading
   std::vector<std::jthread> threads;
   for(int i = 0; i < 7; i++) {
-    threads.emplace_back([&](){
+    threads.emplace_back([i, &db](){
       for(int j = 0; j < 10; ++j) {
         try {
           std::cout << "tid[" << std::this_thread::get_id() << "] job " << j << std::endl;
