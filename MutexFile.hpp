@@ -61,10 +61,10 @@ struct MutexFile  {
   }
 
   void unlock() const  {
-
 #ifndef NDEBUG
     numLocks--;
 #endif
+
     if(!isAlreadyLockedByMe()) return;
 
     struct flock flk{};

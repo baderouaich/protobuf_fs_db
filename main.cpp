@@ -69,7 +69,7 @@ int main() {
   setting.set_value("cs1.6");
   setting.set_userid(user1.id());
   db.add(setting, true);
-  assert(db.get<types::Setting>("favorite_game").value() == "cs1.6");
+  assert(db.get<types::Setting>("favorite_game")->value() == "cs1.6");
 
   // Test adding new downloads
   types::Download download;
@@ -86,12 +86,12 @@ int main() {
 
   std::cout << db.count<types::User>()  << " users\n";
   std::cout << db.count<types::Download>()  << " downloads\n";
-  std::cout << db.get<types::User>(2000).name() << std::endl;
+  std::cout << db.get<types::User>(2000)->name() << std::endl;
   if(db.exists<types::Download>(21)) {
     auto down = db.get<types::Download>(21);
     std::unreachable(); // no user exist with that id 21 (yet)
   }
-  std::cout << db.get<types::Download>(3000).url() << std::endl;
+  std::cout << db.get<types::Download>(3000)->url() << std::endl;
   assert(MutexFile::numLocks == 0);
 
   std::cout << "All: " << std::endl;

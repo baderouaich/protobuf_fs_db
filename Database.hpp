@@ -44,16 +44,24 @@ class Database {
     bool readonly{false};
 
     explicit DatabaseRAIILocker(Database& pdb, bool preadonly = false) : db(pdb), readonly(preadonly){
-      db.mutexFile.lock();
-      if(readonly) db.mutex.lock_shared();
-      else  db.mutex.lock();
+      if(readonly) {
+        db.mutex.lock_shared();
+      }
+      else  {
+        db.mutexFile.lock();
+        db.mutex.lock();
+      }
       //std::cout << "Database Locked" << std::endl;
     }
 
     ~DatabaseRAIILocker() {
-      db.mutexFile.unlock();
-      if(readonly) db.mutex.unlock_shared();
-      else db.mutex.unlock();
+      if(readonly) {
+        db.mutex.unlock_shared();
+      }
+      else {
+        db.mutexFile.unlock();
+        db.mutex.unlock();
+      }
       //std::cout << "Database Unlocked" << std::endl;
     }
   };
@@ -66,7 +74,7 @@ public:
   }
 
   template<typename T>
-  void typeDirName(const std::string& name){
+  void typeDirName(const std::string& name) {
     typeDirNames[typeid(T)] = name;
   }
 
@@ -85,7 +93,7 @@ public:
   }
 
   template<typename T, typename ID>
-  T get(const ID& id) {
+  std::optional<T> get(const ID& id) {
     DatabaseRAIILocker locker{*this, true};
     return this->_get<T, ID>(id);
   }
@@ -156,14 +164,16 @@ private:
   }
 
   template<typename T, typename ID>
-  T _get(const ID& id) {
+  std::optional<T> _get(const ID& id) {
     const fs::path objDir = dbDir / typeDirName<T>();
     if(!fs::is_directory(objDir))
-      throw std::logic_error("Db is empty");
+      //throw std::logic_error("Db is empty");
+      return std::nullopt;
 
     const fs::path objFilename = objDir / utils::to_string(id);
     if(!fs::exists(objFilename)){
-      throw std::logic_error("Object file " + objFilename.string() + " does not exists");
+      //throw std::logic_error("Object file " + objFilename.string() + " does not exists");
+      return std::nullopt;
     }
 
     if(std::ifstream ifs{objFilename, std::ios::binary}) {
@@ -172,7 +182,8 @@ private:
       ifs.close();
       return v;
     } else {
-      throw std::runtime_error("Could not open file " + objFilename.string());
+      //throw std::runtime_error("Could not open file " + objFilename.string());
+      return std::nullopt;
     }
   }
 
@@ -200,7 +211,7 @@ private:
     const fs::path objDir = dbDir / typeDirName<T>();
     for(const auto& it : fs::directory_iterator(objDir)) {
       const auto id = utils::sto<decltype(std::declval<T>().id())>(it.path().filename().string());
-      types.emplace_back(_get<T>(id)); // note we're using _get() and not get() to not lock db twice.
+      types.emplace_back(*_get<T>(id)); // note we're using _get() and not get() to not lock db twice.
     }
     return types;
   }
@@ -233,8 +244,8 @@ private:
     const fs::path objDir = dbDir / typeDirName<T>();
     for(const auto& it : fs::directory_iterator(objDir)) {
       const auto id = utils::sto<decltype(std::declval<T>().id())>(it.path().filename().string());
-      T&& obj = _get<T>(id); // note we're using _get() and not get() to not lock db twice.
-      if(predicate(obj)) {
+      std::optional<T> obj = _get<T>(id); // note we're using _get() and not get() to not lock db twice.
+      if(predicate(*obj)) {
         return obj;
       }
     }
