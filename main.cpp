@@ -30,24 +30,35 @@ int main() {
   db.clear<types::Download>();
 
   // Test adding new users
+  assert(MutexFile::numLocks == 0);
+
   types::User user1;
   user1.set_id(1000);
   user1.set_name("James");
   user1.set_weight(83.15);
   db.add(user1, true);
   assert(db.exists<types::User>(user1.id()));
+  assert(MutexFile::numLocks == 0);
 
   types::User user2;
   user2.set_id(2000);
   user2.set_name("Olga");
   user2.set_weight(62.00);
+  assert(MutexFile::numLocks == 0);
   db.add(user2, true);
+  assert(MutexFile::numLocks == 0);
   assert(db.exists<types::User>(user2.id()));
+  assert(MutexFile::numLocks == 0);
   assert(db.count<types::User>() == db.all<types::User>().size());
+  assert(MutexFile::numLocks == 0);
   assert(db.count<types::User>() == 2);
+  assert(MutexFile::numLocks == 0);
   assert(db.remove<types::User>(1000));
+  assert(MutexFile::numLocks == 0);
   assert(db.remove<types::User>(1000));
+  assert(MutexFile::numLocks == 0);
   assert(db.count<types::User>() == 1);
+  assert(MutexFile::numLocks == 0);
 
   // Test adding new downloads
   types::Download download;
@@ -60,6 +71,7 @@ int main() {
   db.add(download, true);
   assert(db.exists<types::Download>(download.id()));
   assert(db.count<types::Download>() == 1);
+  assert(MutexFile::numLocks == 0);
 
   std::cout << db.count<types::User>()  << " users\n";
   std::cout << db.count<types::Download>()  << " downloads\n";
@@ -69,11 +81,13 @@ int main() {
     std::unreachable(); // no user exist with that id 21 (yet)
   }
   std::cout << db.get<types::Download>(3000).url() << std::endl;
+  assert(MutexFile::numLocks == 0);
 
   std::cout << "All: " << std::endl;
   for(const types::User& user : db.all<types::User>()) {
     std::cout << user.id() << ": " << user.name() << std::endl;
   }
+  assert(MutexFile::numLocks == 0);
 
   std::cout << "Find user with weight > 50:\n";
   std::optional<types::User> u = db.findIf<types::User>([](const types::User& u) -> bool {
@@ -84,6 +98,7 @@ int main() {
   }  else {
     std::cout << "No user was found with > 50 weight" << std::endl;
   }
+  assert(MutexFile::numLocks == 0);
 
   struct ScopeBenchmark {
     explicit ScopeBenchmark(std::string  name)
@@ -112,6 +127,7 @@ int main() {
       db.add(user, true);
     }
   }
+  assert(MutexFile::numLocks == 0);
 
 
   {
@@ -122,32 +138,45 @@ int main() {
     });
     assert(user.has_value());
   }
+  assert(MutexFile::numLocks == 0);
 
-
+  // Test multithreading
   std::vector<std::jthread> threads;
   for(int i = 0; i < 7; i++) {
     threads.emplace_back([&](){
       for(int j = 0; j < 10; ++j) {
-        std::cout << "tid[" << std::this_thread::get_id() << "] job " << j << std::endl;
+        try {
+          std::cout << "tid[" << std::this_thread::get_id() << "] job " << j << std::endl;
 
-        auto user = db.findIf<types::User>([](const types::User &user) {
-          return user.id() == 99;
-        });
-        assert(user.has_value());
+          auto user = db.findIf<types::User>([](const types::User &user) {
+            return user.id() == 99;
+          });
+          assert(user.has_value());
 
 
-        types::Download download;
-        download.set_id(i + j);
-        download.set_userid(rand() % 10000); // owner
-        download.set_timestamp(std::time(nullptr));
-        download.set_url("https://youtube.com/some/video");
-        download.set_size(1024 * 1024 * (rand()%1025));
-        download.set_success(!!(rand()%2));
-        db.add(download, true);
-        assert(db.exists<types::Download>(download.id()));
+          types::Download download;
+          download.set_id(i + j);
+          download.set_userid(rand() % 10000); // owner
+          download.set_timestamp(std::time(nullptr));
+          download.set_url("https://youtube.com/some/video");
+          download.set_size(1024 * 1024 * (rand() % 1025));
+          download.set_success(!!(rand() % 2));
+          db.add(download, true);
+          assert(db.exists<types::Download>(download.id()));
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(rand() % 1000));
+          std::this_thread::sleep_for(std::chrono::milliseconds(rand() % 1000));
+        }
+        catch(const std::exception& err){
+          std::cerr << "tid ["<<std::this_thread::get_id() <<"] error: " << err.what() << std::endl;
+        }
       }
     });
   }
+
+  for(auto& t : threads) {
+    if(t.joinable())
+      t.join();
+  }
+
+  assert(MutexFile::numLocks == 0);
 }
