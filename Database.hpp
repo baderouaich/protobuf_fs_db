@@ -1,8 +1,6 @@
 #pragma once
 #include <iostream>
 #include <fstream>
-#include "User.pb.h"
-#include "Download.pb.h"
 #include <map>
 #include <sstream>
 #include <thread>
