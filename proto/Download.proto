@@ -1,0 +1,13 @@
+syntax = "proto2";
+import "User.proto";
+
+package types;
+
+message Download {
+	required uint64 id = 1;
+	required uint64 userId = 2;
+	required uint64 timestamp = 3;
+	required string url = 4;
+	required uint64 size = 5;
+	required bool success = 6;
+}

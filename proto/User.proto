@@ -1,0 +1,8 @@
+syntax = "proto2";
+package types;
+
+message User {
+	required uint64 id = 1;
+	required string name = 2;
+	optional double weight = 3;
+}
