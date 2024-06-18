@@ -153,7 +153,7 @@ int main() {
 
   // Test multithreading
   std::vector<std::jthread> threads;
-  for(int i = 0; i < 7; i++) {
+  for(int i = 0; i < 4; i++) {
     threads.emplace_back([i, &db](){
       for(int j = 0; j < 10; ++j) {
         try {

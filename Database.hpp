@@ -123,6 +123,14 @@ public:
     return this->_all<T>();
   }
 
+  // TODO: iterating over objects in such way:
+  // for(const types::User& user : db.iterate<types::User>())
+  // {
+  //   ...
+  // }
+  // Unlike the all() method which loads all objects then returns them,
+  // This should be iterative, load -> serve -> next.
+
   template<typename T, typename ID>
   bool remove(const ID& id)
   {
