@@ -105,7 +105,9 @@ db.clear<types::Setting>();
 A Company have saved 98% in cloud costs by writing their own database.
 They created a purpose built, in process storage engine that’s part of the same executable as their core server.
 It writes a minimal, delta based binary format. A single entry looks like this:
+
 ![image](https://hivekit.io/blog/how-weve-saved-98-percent-in-cloud-costs-by-writing-our-own-database/byte-diagram.png)
+
 The result: A 98% reduction in cloud cost and faster everything
 
 Of course, this is not general, some databases are too sophisticated that require a real database engine such as Microsoft SQL Server, Oracle Database, MySQL, Postgres... but this company is storing simple data structure and 
