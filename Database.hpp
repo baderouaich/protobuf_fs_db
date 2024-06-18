@@ -90,6 +90,14 @@ public:
     this->_add<T>(obj, overwrite);
   }
 
+  template<typename T>
+  void update(const T& obj)
+  {
+    DatabaseRAIILocker locker{*this, false};
+    this->_update<T>(obj);
+  }
+
+
   template<typename T, typename ID>
   std::optional<T> get(const ID& id) {
     DatabaseRAIILocker locker{*this, true};
@@ -134,6 +142,18 @@ public:
     return this->_findIf<T, Predicate>(predicate);
   }
 
+  template<typename T, typename Predicate>
+  std::size_t countIf(const Predicate& predicate) {
+    DatabaseRAIILocker locker{*this, true};
+    return this->_countIf<T, Predicate>(predicate);
+  }
+
+  template<typename T, typename Predicate>
+  bool removeIf(const Predicate& predicate) {
+    DatabaseRAIILocker locker{*this, false};
+    return this->_removeIf<T, Predicate>(predicate);
+  }
+
 
 private:
   template<typename T>
@@ -159,6 +179,11 @@ private:
       throw std::runtime_error("Could not open file " + objFilename.string());
     }
 
+  }
+
+  template<typename T>
+  void _update(const T& obj) {
+    _add<T>(obj, true);
   }
 
   template<typename T, typename ID>
@@ -249,4 +274,33 @@ private:
     }
     return std::nullopt;
   }
+
+  template<typename T, typename Predicate>
+  std::size_t _countIf(const Predicate& predicate) {
+    std::size_t count{0};
+    const fs::path objDir = dbDir / typeDirName<T>();
+    for(const auto& it : fs::directory_iterator(objDir)) {
+      const auto id = utils::sto<decltype(std::declval<T>().id())>(it.path().filename().string());
+      std::optional<T> obj = _get<T>(id); // note we're using _get() and not get() to not lock db twice.
+      if(predicate(*obj)) {
+        ++count;
+      }
+    }
+    return count;
+  }
+
+  template<typename T, typename Predicate>
+  bool _removeIf(const Predicate& predicate) {
+    const fs::path objDir = dbDir / typeDirName<T>();
+    bool ok = true;
+    for(const auto& it : fs::directory_iterator(objDir)) {
+      const auto id = utils::sto<decltype(std::declval<T>().id())>(it.path().filename().string());
+      std::optional<T> obj = _get<T>(id); // note we're using _get() and not get() to not lock db twice.
+      if(predicate(*obj)) {
+        ok &= _remove<T>(id);
+      }
+    }
+    return ok;
+  }
+
 };

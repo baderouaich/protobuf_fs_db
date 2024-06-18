@@ -189,5 +189,26 @@ int main() {
       t.join();
   }
 
+  std::size_t evenIdDownloadCount = db.countIf<types::User>([](const types::User& user) {
+    return user.id() % 2 == 0;
+  });
+  std::cout << "There are " << evenIdDownloadCount << " Downloads with even id.\n";
+
+  bool ok = db.removeIf<types::User>([](const types::User& user) {
+    return user.id() % 2 == 0;
+  });
+  assert(ok);
+  evenIdDownloadCount = db.countIf<types::User>([](const types::User& user) {
+    return user.id() % 2 == 0;
+  });
+  std::cout << "After removeIf, There are " << evenIdDownloadCount << " Downloads with even id.\n";
+  assert(evenIdDownloadCount == 0);
+
+
+  user1.set_name("NewName");
+  db.update<types::User>(user1);
+  assert(db.get<types::User>(user1.id())->name() == "NewName");
+
+
   assert(MutexFile::numLocks == 0);
 }

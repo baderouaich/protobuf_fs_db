@@ -13,6 +13,7 @@ struct MutexFile  {
 #ifndef NDEBUG
   inline static uint64_t numLocks = 0;
 #endif
+
   explicit MutexFile(const fs::path& pfilename) : filename(pfilename)
   {
 
