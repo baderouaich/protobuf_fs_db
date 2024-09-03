@@ -8,12 +8,14 @@
 #include <filesystem>
 #include <optional>
 #include <shared_mutex>
+#include <unordered_map>
 #include "MutexFile.hpp"
 namespace fs = std::filesystem;
 
 namespace utils {
   template<typename T>
   static T sto(const std::string& str) {
+    if constexpr (std::is_same_v<T, std::string>) return str; // if not necessary
     T v{};
     std::istringstream iss{str};
     iss >> v;
@@ -241,7 +243,7 @@ private:
     types.reserve(_count<T>()); // note we're using _count() and not count() to not lock db twice.
     const fs::path objDir = dbDir / typeDirName<T>();
     for(const auto& it : fs::directory_iterator(objDir)) {
-      const auto id = utils::sto<decltype(std::declval<T>().id())>(it.path().filename().string());
+      const auto id = utils::sto<std::remove_cvref_t<decltype(std::declval<T>().id())>>(it.path().filename().string());
       types.emplace_back(*_get<T>(id)); // note we're using _get() and not get() to not lock db twice.
     }
     return types;
@@ -274,7 +276,7 @@ private:
   std::optional<T> _findIf(const Predicate& predicate) {
     const fs::path objDir = dbDir / typeDirName<T>();
     for(const auto& it : fs::directory_iterator(objDir)) {
-      const auto id = utils::sto<decltype(std::declval<T>().id())>(it.path().filename().string());
+      const auto id = utils::sto<std::remove_cvref_t<decltype(std::declval<T>().id())>>(it.path().filename().string());
       std::optional<T> obj = _get<T>(id); // note we're using _get() and not get() to not lock db twice.
       if(predicate(*obj)) {
         return obj;
@@ -288,7 +290,7 @@ private:
     std::size_t count{0};
     const fs::path objDir = dbDir / typeDirName<T>();
     for(const auto& it : fs::directory_iterator(objDir)) {
-      const auto id = utils::sto<decltype(std::declval<T>().id())>(it.path().filename().string());
+      const auto id = utils::sto<std::remove_cvref_t<decltype(std::declval<T>().id())>>(it.path().filename().string());
       std::optional<T> obj = _get<T>(id); // note we're using _get() and not get() to not lock db twice.
       if(predicate(*obj)) {
         ++count;
@@ -302,7 +304,7 @@ private:
     const fs::path objDir = dbDir / typeDirName<T>();
     bool ok = true;
     for(const auto& it : fs::directory_iterator(objDir)) {
-      const auto id = utils::sto<decltype(std::declval<T>().id())>(it.path().filename().string());
+      const auto id = utils::sto<std::remove_cvref_t<decltype(std::declval<T>().id())>>(it.path().filename().string());
       std::optional<T> obj = _get<T>(id); // note we're using _get() and not get() to not lock db twice.
       if(predicate(*obj)) {
         ok &= _remove<T>(id);
