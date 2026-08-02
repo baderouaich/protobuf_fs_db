@@ -11,7 +11,7 @@ struct MutexFile  {
   int fd{};
 
 #ifndef NDEBUG
-  inline static uint64_t numLocks = 0;
+  inline static std::atomic<uint64_t> numLocks = 0;
 #endif
 
   explicit MutexFile(const fs::path& pfilename) : filename(pfilename)
@@ -21,9 +21,9 @@ struct MutexFile  {
 
   void lock()  {
 #ifndef NDEBUG
-    numLocks++;
-#endif
+    numLocks.fetch_add(1);
     if(isAlreadyLockedByMe()) return;
+#endif
 
     fd = open(filename.string().c_str(), O_CREAT | O_RDWR, 0666);
     if (fd < 0)
@@ -63,10 +63,10 @@ struct MutexFile  {
 
   void unlock() const  {
 #ifndef NDEBUG
-    numLocks--;
-#endif
+    numLocks.fetch_sub(1);
 
     if(!isAlreadyLockedByMe()) return;
+#endif
 
     struct flock flk{};
     flk.l_type = F_UNLCK; // Remove lock
