@@ -14,6 +14,10 @@ namespace fs = std::filesystem;
 #endif
 
 int main() {
+  // {
+  //   assert(Database::sha256<std::string>("Random text to test sha256 hash") == "451d01f33f604e78e324eb163d7d593d1603e7874e2ff5d98b52980eba51aa2a");
+  //   return 0;
+  // }
   // so each object = file
   // each object has (must have) ID, and file path can easily be accessed
   // by id, so if id is: User{id = 100, ...}
@@ -153,11 +157,11 @@ int main() {
 
   // Test multithreading
   std::vector<std::jthread> threads;
-  for(int i = 0; i < 4; i++) {
+  for(int i = 0; i < std::thread::hardware_concurrency() - 1; i++) {
     threads.emplace_back([i, &db](){
-      for(int j = 0; j < 10; ++j) {
+      for(int j = 0; j < 100; ++j) {
         try {
-          std::cout << "tid[" << std::this_thread::get_id() << "] job " << j << std::endl;
+          //std::cout << "tid[" << std::this_thread::get_id() << "] job " << j << std::endl;
 
           auto user = db.findIf<types::User>([](const types::User &user) {
             return user.id() == 99;
@@ -165,7 +169,7 @@ int main() {
           assert(user.has_value());
 
 
-          types::Download download;
+          types::Download download{};
           download.set_id(i + j);
           download.set_userid(rand() % 10000); // owner
           download.set_timestamp(std::time(nullptr));
@@ -175,7 +179,7 @@ int main() {
           db.add(download, true);
           assert(db.exists<types::Download>(download.id()));
 
-          std::this_thread::sleep_for(std::chrono::milliseconds(rand() % 1000));
+           //std::this_thread::sleep_for(std::chrono::milliseconds(rand() % 1000));
         }
         catch(const std::exception& err){
           std::cerr << "tid ["<<std::this_thread::get_id() <<"] error: " << err.what() << std::endl;

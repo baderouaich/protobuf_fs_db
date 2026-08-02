@@ -10,6 +10,7 @@
 #include <shared_mutex>
 #include <unordered_map>
 #include "MutexFile.hpp"
+#include "sha256/sha256.h"
 namespace fs = std::filesystem;
 
 namespace utils {
@@ -164,15 +165,48 @@ public:
     return this->_removeIf<T, Predicate>(predicate);
   }
 
+  template<typename T = std::string>
+  static std::string sha256(T input) {
+    BYTE hash[SHA256_BLOCK_SIZE];
+    SHA256_CTX ctx{};
+    sha256_init(&ctx);
+    sha256_update(&ctx, reinterpret_cast<const BYTE*>(input.c_str()), input.size());
+    sha256_final(&ctx, hash);
 
+    std::ostringstream oss{};
+    for (const unsigned char i : hash) {
+      oss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(i);
+    }
+    return oss.str();
+  }
+  template<typename T> requires std::is_arithmetic_v<T>
+  static std::string sha256(T input) {
+    return sha256(std::to_string(input));
+  }
+
+  template<const std::size_t Size>
+  static fs::path shard_dir(const char(&id)[Size]) {
+    return shard_dir(std::string(id));
+    // return std::to_string(std::hash<std::string>()(std::string(id))).substr(0, 2);
+  }
+
+  template<typename T>
+  static fs::path shard_dir(const T& id) {
+    constexpr size_t kNumLayers = 3; // Users/layer1/layer2/layer3/user.bin
+    std::string hash = sha256(id);
+    fs::path shards;
+    for (int i = 0; i < kNumLayers * 2; i += 2) {
+      shards /= hash.substr(i, 2);
+    }
+    return shards;
+  }
 private:
   template<typename T>
   void _add(const T& obj, bool overwrite = false)
   {
-    const fs::path objDir = dbDir / typeDirName<T>();
+    const fs::path objDir = dbDir / typeDirName<T>() / shard_dir(obj.id());
     if(!fs::is_directory(objDir))
       fs::create_directories(objDir);
-
 
     const fs::path objFilename = objDir / utils::to_string(obj.id());
     if(fs::exists(objFilename) && !overwrite)
@@ -198,7 +232,7 @@ private:
 
   template<typename T, typename ID>
   std::optional<T> _get(const ID& id) {
-    const fs::path objDir = dbDir / typeDirName<T>();
+    const fs::path objDir = dbDir / typeDirName<T>() / shard_dir(id);
     if(!fs::is_directory(objDir))
       //throw std::logic_error("Db is empty");
       return std::nullopt;
@@ -222,17 +256,17 @@ private:
 
   template<typename T, typename ID>
   bool _exists(const ID& id) {
-    const fs::path objDir = dbDir / typeDirName<T>();
+    const fs::path objDir = dbDir / typeDirName<T>() / shard_dir(id);
     const fs::path objFilename = objDir / utils::to_string(id);
     return fs::exists(objFilename);
   }
 
   template<typename T>
   std::size_t _count() {
-    const fs::path objDir = dbDir / typeDirName<T>();
+    const fs::path objDir = dbDir / typeDirName<T>() ;
     std::size_t c{0};
-    for([[maybe_unused]] const auto& it : fs::directory_iterator(objDir)) {
-      c++;
+    for([[maybe_unused]] const auto& it : fs::recursive_directory_iterator(objDir)) {
+      c += it.is_regular_file();
     }
     return c;
   }
@@ -242,7 +276,8 @@ private:
     std::vector<T> types{};
     types.reserve(_count<T>()); // note we're using _count() and not count() to not lock db twice.
     const fs::path objDir = dbDir / typeDirName<T>();
-    for(const auto& it : fs::directory_iterator(objDir)) {
+    for(const auto& it : fs::recursive_directory_iterator(objDir)) {
+      if (not it.is_regular_file()) continue;
       const auto id = utils::sto<std::remove_cvref_t<decltype(std::declval<T>().id())>>(it.path().filename().string());
       types.emplace_back(*_get<T>(id)); // note we're using _get() and not get() to not lock db twice.
     }
@@ -252,7 +287,7 @@ private:
   template<typename T, typename ID>
   bool _remove(const ID& id)
   {
-    const fs::path objDir = dbDir / typeDirName<T>();
+    const fs::path objDir = dbDir / typeDirName<T>() / shard_dir(id);
     if(!fs::exists(objDir))
       fs::create_directories(objDir);
 
@@ -275,7 +310,8 @@ private:
   template<typename T, typename Predicate>
   std::optional<T> _findIf(const Predicate& predicate) {
     const fs::path objDir = dbDir / typeDirName<T>();
-    for(const auto& it : fs::directory_iterator(objDir)) {
+    for(const auto& it : fs::recursive_directory_iterator(objDir)) {
+      if (!it.is_regular_file()) continue;
       const auto id = utils::sto<std::remove_cvref_t<decltype(std::declval<T>().id())>>(it.path().filename().string());
       std::optional<T> obj = _get<T>(id); // note we're using _get() and not get() to not lock db twice.
       if(predicate(*obj)) {
@@ -289,7 +325,8 @@ private:
   std::size_t _countIf(const Predicate& predicate) {
     std::size_t count{0};
     const fs::path objDir = dbDir / typeDirName<T>();
-    for(const auto& it : fs::directory_iterator(objDir)) {
+    for(const auto& it : fs::recursive_directory_iterator(objDir)) {
+      if (!it.is_regular_file()) continue;
       const auto id = utils::sto<std::remove_cvref_t<decltype(std::declval<T>().id())>>(it.path().filename().string());
       std::optional<T> obj = _get<T>(id); // note we're using _get() and not get() to not lock db twice.
       if(predicate(*obj)) {
@@ -303,7 +340,8 @@ private:
   bool _removeIf(const Predicate& predicate) {
     const fs::path objDir = dbDir / typeDirName<T>();
     bool ok = true;
-    for(const auto& it : fs::directory_iterator(objDir)) {
+    for(const auto& it : fs::recursive_directory_iterator(objDir)) {
+      if (!it.is_regular_file())continue;
       const auto id = utils::sto<std::remove_cvref_t<decltype(std::declval<T>().id())>>(it.path().filename().string());
       std::optional<T> obj = _get<T>(id); // note we're using _get() and not get() to not lock db twice.
       if(predicate(*obj)) {
